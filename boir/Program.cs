@@ -38,17 +38,9 @@ namespace boir
 {
     public class Program
     {
-        [DllImport("kernel32.dll")]
-        static extern bool AttachConsole(int dwProcessId);
-        private const int ATTACH_PARENT_PROCESS = -1;
-
         [STAThread]
         static void Main(string[] args)
         {
-
-            Application.EnableVisualStyles();
-            Application.SetCompatibleTextRenderingDefault(false);
-
             new PathForm(StartDecryption).ShowDialog();
 
         }
@@ -57,10 +49,6 @@ namespace boir
 
         private static void StartDecryption(DecryptionInfos dinfos)
         {
-            // show console
-            
-            AttachConsole(ATTACH_PARENT_PROCESS);
-
 
             dinfos.SteamLocation = new DirectoryInfo(Path.Combine(dinfos.SteamLocation.FullName, "resources\\packed"));
 
