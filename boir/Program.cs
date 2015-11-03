@@ -30,34 +30,46 @@ using Microsoft.Win32;
 using Newtonsoft.Json;
 using Org.BouncyCastle.Crypto.Engines;
 using Org.BouncyCastle.Crypto.Parameters;
+using BoIRResourceEditor;
+using BoIRResourceEditor.FormUtils;
+using System.Windows.Forms;
 
 namespace boir
 {
     public class Program
     {
+        [DllImport("kernel32.dll")]
+        static extern bool AttachConsole(int dwProcessId);
+        private const int ATTACH_PARENT_PROCESS = -1;
+
+        [STAThread]
         static void Main(string[] args)
         {
 
+            Application.EnableVisualStyles();
+            Application.SetCompatibleTextRenderingDefault(false);
 
-            //windows accepts both forward and back slashes, so i will use the ones that work everywhere
-            string steamDir;
-            string homeDir = Environment.GetFolderPath(Environment.SpecialFolder.Personal);
+            new PathForm(StartDecryption).ShowDialog();
 
-            if (Environment.OSVersion.Platform == PlatformID.Unix)
-                steamDir = Path.Combine(homeDir, ".local/share/Steam");
-            else if (Environment.OSVersion.Platform == PlatformID.MacOSX)
-                steamDir = Path.Combine(homeDir, "Library/Application Support/Steam");
-            else
-                steamDir = (string)Registry.GetValue(@"HKEY_CURRENT_USER\Software\Valve\Steam", "SteamPath", "C:/Program Files (x86)/Steam");
+        }
 
-            var dir = new DirectoryInfo(Path.Combine(steamDir, "SteamApps/common/The Binding of Isaac Rebirth/resources/packed"));
 
-            var hashToFilename = GetFileNames(Path.Combine(dir.FullName, "config.a"));
+
+        private static void StartDecryption(DecryptionInfos dinfos)
+        {
+            // show console
+            
+            AttachConsole(ATTACH_PARENT_PROCESS);
+
+
+            dinfos.SteamLocation = new DirectoryInfo(Path.Combine(dinfos.SteamLocation.FullName, "resources\\packed"));
+
+            var hashToFilename = GetFileNames(Path.Combine(dinfos.SteamLocation.FullName, "config.a"));
 
             var found = 0;
             var total = 0;
 
-            foreach (var file in dir.GetFiles("*.a"))
+            foreach (var file in dinfos.SteamLocation.GetFiles("*.a"))
             {
                 using (var fs = File.OpenRead(file.FullName))
                 {
@@ -67,7 +79,7 @@ namespace boir
                     foreach (var p in new FileReader().Read(fs))
                     {
                         var fileName = (hashToFilename.ContainsKey(p.Hash)) ? hashToFilename[p.Hash] : "nothing";
-                        Console.WriteLine("Found for hash {0} file name {1}", p.Hash, fileName);
+                        dinfos.WriteLine(string.Format("Found for hash {0} file name {1}", p.Hash, fileName));
 
                         total++;
 
@@ -81,12 +93,13 @@ namespace boir
                         {
                             filePath = Path.Combine(file.Name, (total - found) + "." + p.RecordType.ToString().ToLower());
                         }
+                        filePath = Path.Combine(dinfos.OutputLocation.FullName, filePath);
                         Directory.CreateDirectory(Path.GetDirectoryName(filePath));
                         File.WriteAllBytes(filePath, p.Data);
                     }
                 }
             }
-            Console.WriteLine("Found {0} of {1}", found, total);
+            dinfos.WriteLine(string.Format("Done! {2} Found {0} of {1}", found, total, Environment.NewLine));
         }
 
         static Dictionary<uint, string> GetFileNames(string configFilePath)
